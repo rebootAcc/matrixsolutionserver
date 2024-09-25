@@ -20,6 +20,9 @@ const productSchema = new mongoose.Schema(
     categoryName: { type: String, required: true },
     subCategoryName: String,
     subSubCategoryName: String,
+    level3subCategoryName: String,
+    level4subCategoryName: String,
+
     title: { type: String, required: true },
     brand: {
       type: String,
@@ -48,7 +51,7 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-productSchema.index({ createdAt: -1 });
+productSchema.index({ createdAt: -1, productId: 1 });
 
 const Product = mongoose.model("Product", productSchema);
 

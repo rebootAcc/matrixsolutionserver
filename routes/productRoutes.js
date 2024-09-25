@@ -1,36 +1,28 @@
 // routes/productRoutes.js
 const express = require("express");
-const {
-  createProduct,
-  getAllProducts,
-  toggleProductActiveState,
-  getProductById,
-  updateProduct,
-  deleteProduct,
-  getProductsByCategory,
-  getProductsBysubCategory,
-  getProductsByBrand,
-  getProductsBysubsubCategory,
-} = require("../controllers/productController");
+const productController = require("../controllers/productController");
 
 const router = express.Router();
 
-router.post("/add", createProduct);
-router.get("/all", getAllProducts);
-router.put("/toggle-active/:productId", toggleProductActiveState);
-router.get("/:productId", getProductById);
-router.get("/category/:categoryName", getProductsByCategory);
-router.get("/brand/:brand", getProductsByBrand);
+router.post("/add", productController.createProduct);
+router.get("/all", productController.getAllProducts);
+router.put(
+  "/toggle-active/:productId",
+  productController.toggleProductActiveState
+);
+router.get("/:productId", productController.getProductById);
+router.get("/category/:categoryName", productController.getProductsByCategory);
+router.get("/brand/:brand", productController.getProductsByBrand);
 
 router.get(
   "/category/:categoryName/subcategory/:subCategoryName",
-  getProductsBysubCategory
+  productController.getProductsBysubCategory
 );
 router.get(
   "/category/:categoryName/subcategory/:subCategoryName/subsubcategory/:subSubCategoryName",
-  getProductsBysubsubCategory
+  productController.getProductsBysubsubCategory
 );
 
-router.put("/update/:productId", updateProduct);
-router.delete("/delete/:productId", deleteProduct);
+router.put("/update/:productId", productController.updateProduct);
+router.delete("/delete/:productId", productController.deleteProduct);
 module.exports = router;

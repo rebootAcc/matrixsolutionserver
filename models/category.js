@@ -1,8 +1,18 @@
 // models/Category.js
 const mongoose = require("mongoose");
 
+const lavel4CategorySchema = new mongoose.Schema({
+  name: String,
+});
+
+const lavel3CategorySchema = new mongoose.Schema({
+  name: String,
+  lavel4CategorySchema: [lavel4CategorySchema],
+});
+
 const subSubCategorySchema = new mongoose.Schema({
   name: String,
+  lavel3CategorySchema: [lavel3CategorySchema],
 });
 
 const subCategorySchema = new mongoose.Schema({
