@@ -133,6 +133,15 @@ const getBrands = async (req, res) => {
   }
 };
 
+const getBrandCount = async (req, res) => {
+  try {
+    const totalBrands = await Brand.countDocuments({});
+    res.status(200).json({ totalBrands });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch brand count" });
+  }
+};
+
 const updateBrand = async (req, res) => {
   try {
     const { brandId } = req.params;
@@ -187,4 +196,5 @@ module.exports = {
   getBrands,
   updateBrand,
   deleteBrand,
+  getBrandCount,
 };

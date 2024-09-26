@@ -10,6 +10,7 @@ router.post("/subsub", categoryController.addSubSubCategory);
 router.post("/lavel3", categoryController.addLavel3Category);
 router.post("/lavel4", categoryController.addLavel4Category);
 router.get("/getcategory", categoryController.getCategories);
+router.get("/getcategorystats", categoryController.getCategoryStats);
 router.put("/updatecategory", categoryController.updateCategory);
 router.delete("/deletecategory", categoryController.deleteCategory);
 

@@ -175,6 +175,25 @@ exports.getCategories = async (req, res) => {
   }
 };
 
+exports.getCategoryStats = async (req, res) => {
+  try {
+    const categories = await Category.find({});
+    const totalCategories = categories.length;
+    let totalSubCategories = 0;
+
+    categories.forEach((category) => {
+      totalSubCategories += category.subcategories.length;
+    });
+
+    res.status(200).json({
+      totalCategories,
+      totalSubCategories,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch category stats" });
+  }
+};
+
 exports.updateCategory = async (req, res) => {
   try {
     const {
