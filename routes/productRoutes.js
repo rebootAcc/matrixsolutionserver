@@ -10,6 +10,7 @@ router.put(
   "/toggle-active/:productId",
   productController.toggleProductActiveState
 );
+
 router.get("/:productId", productController.getProductById);
 router.get("/category/:categoryName", productController.getProductsByCategory);
 router.get("/brand/:brand", productController.getProductsByBrand);

@@ -89,9 +89,7 @@ exports.createProduct = async (req, res) => {
         !req.body.modelNumber ||
         !req.body.title ||
         !req.body.brand ||
-        !req.body.price ||
-        !req.body.productthumbnailimage ||
-        !req.body.images
+        !req.body.price
       ) {
         return res.status(400).json({
           message:
