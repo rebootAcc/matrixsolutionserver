@@ -61,27 +61,59 @@ const uploadToCloudinary = (fileBuffer) => {
 
 exports.createProduct = async (req, res) => {
   try {
-    if (!req.files || Object.keys(req.files).length === 0) {
-      return res.status(400).json({ message: "No files were uploaded." });
+    // For "Save as Draft", allow minimal fields
+    const isDraft = req.body.isdraft === "true" || req.body.isdraft === true;
+
+    // Minimal validation for drafts
+    if (isDraft) {
+      if (!req.body.modelNumber || !req.body.title || !req.body.brand) {
+        return res.status(400).json({
+          message:
+            "Model Number, Title, and Brand are required for saving as draft.",
+        });
+      }
+    } else {
+      // Full validation for saving the product (non-draft)
+      if (
+        !req.files ||
+        Object.keys(req.files).length === 0 ||
+        !req.files.productthumbnailimage
+      ) {
+        return res.status(400).json({
+          message: "Product thumbnail image is required.",
+        });
+      }
+
+      if (
+        !req.body.categoryName ||
+        !req.body.modelNumber ||
+        !req.body.title ||
+        !req.body.brand ||
+        !req.body.price ||
+        !req.body.productthumbnailimage ||
+        !req.body.images
+      ) {
+        return res.status(400).json({
+          message:
+            "Please provide all required fields (category, model number, title, brand, price).",
+        });
+      }
     }
 
-    if (!req.files.productthumbnailimage) {
-      return res
-        .status(400)
-        .json({ message: "Product thumbnail image is required." });
-    }
+    // Handle file uploads for non-draft products
+    let productThumbnailImage = null;
+    let imageUrls = [];
 
-    const thumbnailImageFile = req.files.productthumbnailimage;
-    const productThumbnailImage = await uploadToCloudinary(
-      thumbnailImageFile.data
-    );
+    if (!isDraft) {
+      const thumbnailImageFile = req.files.productthumbnailimage;
+      productThumbnailImage = await uploadToCloudinary(thumbnailImageFile.data);
 
-    const imageUrls = [];
-    const files = req.files.images;
-    const fileArray = Array.isArray(files) ? files : [files];
-    for (const file of fileArray) {
-      const imageUrl = await uploadToCloudinary(file.data);
-      imageUrls.push(imageUrl);
+      const files = req.files.images;
+      const fileArray = Array.isArray(files) ? files : [files];
+      for (const file of fileArray) {
+        const imageUrl = await uploadToCloudinary(file.data);
+        imageUrls.push(imageUrl);
+      }
     }
 
     const productId = await generateProductId();
@@ -96,7 +128,7 @@ exports.createProduct = async (req, res) => {
 
     const newProduct = new Product({
       productId,
-      categoryName: req.body.categoryName,
+      categoryName: req.body.categoryName || null, // Optional for drafts
       subCategoryName: req.body.subCategoryName,
       subSubCategoryName: req.body.subSubCategoryName,
       level3subCategoryName: req.body.level3subCategoryName,
@@ -105,7 +137,7 @@ exports.createProduct = async (req, res) => {
       brand: req.body.brand,
       brandimage: req.body.brandimage,
       modelNumber: req.body.modelNumber,
-      price: req.body.price,
+      price: req.body.price || null, // Optional for drafts
       offerPrice: req.body.offerPrice || "0",
       discount: req.body.discount,
       inStockAvailable: req.body.inStockAvailable,
@@ -113,10 +145,10 @@ exports.createProduct = async (req, res) => {
       soldOutStock: req.body.soldOutStock,
       fullDescription: req.body.fullDescription,
       specifications: parsedSpecifications,
-      images: imageUrls,
-      productthumbnailimage: productThumbnailImage,
+      images: imageUrls, // Only if not a draft
+      productthumbnailimage: productThumbnailImage, // Only if not a draft
       active: req.body.active || false,
-      isdraft: req.body.isdraft || false,
+      isdraft: isDraft,
     });
 
     await newProduct.save();
@@ -194,6 +226,9 @@ exports.getAllProducts = async (req, res) => {
     }
     if (req.query.isdraft) {
       cacheKey += `-isdraft:${req.query.isdraft}`;
+    }
+    if (req.query.active) {
+      cacheKey += `-active:${req.query.active}`;
     }
 
     // Check cache first
@@ -295,6 +330,7 @@ exports.updateProduct = async (req, res) => {
       inStockAvailable,
       soldOutStock,
       removedImages,
+      isdraft, // Add the `isdraft` field
     } = req.body;
 
     let imageUrls = [];
@@ -305,10 +341,71 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    if (product.isdraft) {
+    // If saving as a draft, allow minimal validation
+    if (isdraft === "true" || isdraft === true) {
+      if (!modelNumber || !title || !brand) {
+        return res.status(400).json({
+          message:
+            "Model Number, Title, and Brand are required for draft updates.",
+        });
+      }
+
+      // Ensure isdraft stays true (mark product as draft)
+      product.isdraft = true;
+      product.active = false;
+    } else {
+      // Full validation for publishing (non-draft)
+      if (
+        !categoryName ||
+        !modelNumber ||
+        !title ||
+        !brand ||
+        !price ||
+        (!product.productthumbnailimage &&
+          (!req.files || !req.files.productthumbnailimage)) || // Only check for new thumbnail if none exists
+        (product.images.length === 0 && (!req.files || !req.files.images)) // Only check for new images if none exist
+      ) {
+        return res.status(400).json({
+          message:
+            "Please provide all required fields (category, model number, title, brand, price, product thumbnail image, and images) for publishing.",
+        });
+      }
+
+      // Mark the product as published (isdraft = false)
       product.isdraft = false;
+      product.active = true;
+
+      // Handle file uploads for published products
+      if (req.files && req.files.productthumbnailimage) {
+        if (product.productthumbnailimage) {
+          const publicId = product.productthumbnailimage
+            .split("/")
+            .slice(-1)[0]
+            .split(".")[0];
+          await cloudinary.uploader.destroy(publicId);
+        }
+        const thumbnailImageFile = req.files.productthumbnailimage;
+        productThumbnailImage = await uploadToCloudinary(
+          thumbnailImageFile.data
+        );
+      }
+
+      if (req.files && req.files.images) {
+        const files = Array.isArray(req.files.images)
+          ? req.files.images
+          : [req.files.images];
+        for (const file of files) {
+          const imageUrl = await uploadToCloudinary(file.data);
+          product.images.push(imageUrl);
+        }
+      }
     }
-    // Handle removal of existing images
+
+    imageUrls = product.images; // Assign updated image array to imageUrls
+    productThumbnailImage =
+      productThumbnailImage || product.productthumbnailimage; // Keep existing thumbnail if not updated
+
+    // Handle the removal of existing images
     const removedImagesArray = JSON.parse(removedImages || "[]");
     if (removedImagesArray.length > 0) {
       for (const imageUrl of removedImagesArray) {
@@ -319,33 +416,6 @@ exports.updateProduct = async (req, res) => {
       product.images = product.images.filter(
         (image) => !removedImagesArray.includes(image)
       );
-    }
-
-    if (req.files && req.files.images) {
-      const files = Array.isArray(req.files.images)
-        ? req.files.images
-        : [req.files.images];
-      for (const file of files) {
-        const imageUrl = await uploadToCloudinary(file.data);
-        product.images.push(imageUrl);
-      }
-    }
-
-    imageUrls = product.images; // Assign updated image array to imageUrls
-
-    // Handle the thumbnail update
-    if (req.files && req.files.productthumbnailimage) {
-      if (product.productthumbnailimage) {
-        const publicId = product.productthumbnailimage
-          .split("/")
-          .slice(-1)[0]
-          .split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
-      }
-      const thumbnailImageFile = req.files.productthumbnailimage;
-      productThumbnailImage = await uploadToCloudinary(thumbnailImageFile.data);
-    } else {
-      productThumbnailImage = product.productthumbnailimage; // Keep existing thumbnail if not updated
     }
 
     // Parse specifications and full title description
@@ -380,7 +450,8 @@ exports.updateProduct = async (req, res) => {
         specifications: parsedSpecifications,
         images: imageUrls,
         productthumbnailimage: productThumbnailImage,
-        isdraft: product.isdraft,
+        isdraft: product.isdraft, // Will update isdraft based on the conditions above
+        active: product.active,
       },
       { new: true }
     );
