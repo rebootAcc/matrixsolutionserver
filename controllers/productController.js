@@ -159,6 +159,9 @@ exports.getAllProducts = async (req, res) => {
       match.active = req.query.active === "true";
     }
 
+    if (req.query.isdraft) {
+      match.isdraft = req.query.isdraft === "true";
+    }
     // Category filtering (handles main category, subcategory, and subsubcategory)
     if (req.query.categoryName) {
       match.categoryName = decodeFromUrl(req.query.categoryName);
@@ -188,6 +191,9 @@ exports.getAllProducts = async (req, res) => {
     }
     if (req.query.brand) {
       cacheKey += `-brand:${req.query.brand}`;
+    }
+    if (req.query.isdraft) {
+      cacheKey += `-isdraft:${req.query.isdraft}`;
     }
 
     // Check cache first
@@ -299,6 +305,9 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
+    if (product.isdraft) {
+      product.isdraft = false;
+    }
     // Handle removal of existing images
     const removedImagesArray = JSON.parse(removedImages || "[]");
     if (removedImagesArray.length > 0) {
@@ -371,6 +380,7 @@ exports.updateProduct = async (req, res) => {
         specifications: parsedSpecifications,
         images: imageUrls,
         productthumbnailimage: productThumbnailImage,
+        isdraft: product.isdraft,
       },
       { new: true }
     );
@@ -381,7 +391,15 @@ exports.updateProduct = async (req, res) => {
 
     const cacheKeysToInvalidate = cache
       .keys()
-      .filter((key) => key.includes("allProducts") || key.includes("page:"));
+      .filter(
+        (key) =>
+          key.includes("allProducts") ||
+          key.includes("page:") ||
+          key.includes(`productId:${productId}`) ||
+          key.includes(`isdraft`) ||
+          key.includes(`categoryName`) ||
+          key.includes(`brand`)
+      );
     cacheKeysToInvalidate.forEach((key) => cache.del(key));
 
     res
